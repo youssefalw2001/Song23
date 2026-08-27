@@ -5,7 +5,11 @@
 services:
   - type: web
     name: tails-song-api
-    env: node
+    # `runtime`, not `env`. `env: node` is the deprecated spelling and Render's
+    # blueprint validation rejects it, which fails the sync before anything is
+    # built. The song- service predates the rename, which is why copying its
+    # shape was the wrong instinct here.
+    runtime: node
     plan: free
     buildCommand: npm ci && npm run build
     startCommand: npm start

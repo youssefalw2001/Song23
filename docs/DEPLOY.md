@@ -34,6 +34,35 @@ You already run `song-` there, so the account and the muscle memory exist.
 5. Deploy, then open `/studio/` on the site and connect with the Render URL and the
    token.
 
+### When the deploy fails
+
+Three things account for almost all of it. Read the actual log — Render tells you
+which, and they look nothing alike.
+
+**"A service must specify a runtime" / a blueprint that won't sync at all.**
+The field is `runtime: node`, not `env: node`. `env` is the deprecated spelling and
+validation rejects it *before* anything is built, so you get no build log to look
+at. Fixed in this repo; if you synced an earlier commit, re-sync.
+
+**Build succeeds, then the service immediately exits.** Almost certainly the
+`sync: false` secrets were never filled in. The service refuses to start rather
+than accept requests from anyone, and says so:
+
+```
+Refusing to start. Fix these, then try again:
+
+  ✗ OPERATOR_TOKEN is not set. The service would accept song requests from anyone.
+  ✗ MUSIC_PROVIDER=acemusic but ACE_API_KEY is empty.
+```
+
+Set both in Render → Environment, then redeploy. This is working as intended —
+discovering a missing key on a customer's first song is worse.
+
+**Deploy succeeds but the health check times out.** Something is binding the wrong
+port. This service reads `PORT` from the environment, which Render injects; don't
+set `PORT` in `render.yaml` or you'll override it with something Render isn't
+routing to.
+
 ### Two things about Render's free plan that will bite
 
 **The filesystem is ephemeral.** `data/` is wiped on every deploy and every restart.

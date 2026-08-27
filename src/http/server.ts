@@ -447,6 +447,10 @@ export function startServer(): void {
   server.headersTimeout = 120_000;
   server.requestTimeout = 180_000;
 
+  // No host argument on purpose. Node then binds `::`, which accepts both IPv6
+  // and IPv4 traffic; hardcoding "0.0.0.0" would bind IPv4 only and silently
+  // fail on any platform that routes internal traffic over IPv6. `PORT` comes
+  // from the environment because every host injects its own.
   server.listen(config.port, () => {
     log.info("listening", { port: config.port, provider: config.provider });
   });
