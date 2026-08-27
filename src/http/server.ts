@@ -15,6 +15,8 @@ import { timingSafeEqual } from "node:crypto";
 import { config, authIsOpen } from "../config.ts";
 import { log } from "../log.ts";
 import { getProvider } from "../ace/index.ts";
+import { studioPage } from "./ui.ts";
+import { parseSummary, LABELS } from "../parse-summary.ts";
 import { buildBrief, validateBrief } from "../songwriting/brief.ts";
 import { createJob, getJob, saveJob, listJobs, readTake, listTakes } from "../jobs/store.ts";
 import { enqueue, queueStatus } from "../jobs/queue.ts";
@@ -28,8 +30,10 @@ const MAX_BODY_BYTES = 512 * 1024;
  * one that lists the alternatives usually answers the question on its own.
  */
 const ROUTES: { method: string; path: string; note: string; auth: boolean }[] = [
-  { method: "GET", path: "/", note: "this page", auth: false },
+  { method: "GET", path: "/", note: "the studio", auth: false },
   { method: "GET", path: "/health", note: "liveness", auth: false },
+  { method: "POST", path: "/login", note: "exchange the operator token for a cookie", auth: false },
+  { method: "POST", path: "/parse", note: "pasted email -> answers", auth: true },
   { method: "GET", path: "/status", note: "provider, queue and auth state", auth: true },
   { method: "POST", path: "/brief", note: "build a brief and discard it — costs nothing", auth: true },
   { method: "GET", path: "/jobs", note: "every job, newest first", auth: true },
@@ -119,93 +123,6 @@ function sendHtml(req: IncomingMessage, res: ServerResponse, html: string): void
   res.end(html);
 }
 
-function escapeHtml(text: string): string {
-  return text.replace(
-    /[&<>"']/g,
-    (ch) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] ?? ch,
-  );
-}
-
-/**
- * A page for whoever opened the URL.
- *
- * The single most useful thing it can say is "the service is fine, the studio is
- * over there" — because a fresh deploy is exactly when you cannot tell whether
- * silence means working or broken.
- *
- * No stylesheet, no build step, no dependency. It renders in one request and is
- * not trying to be the website.
- */
-function rootPage(): string {
-  const open = authIsOpen();
-
-  const rows = ROUTES.map(
-    (r) => `<tr>
-      <td class="m">${escapeHtml(r.method)}</td>
-      <td class="m">${escapeHtml(r.path)}</td>
-      <td>${escapeHtml(r.note)}</td>
-      <td class="q">${r.auth && !open ? "token" : ""}</td>
-    </tr>`,
-  ).join("");
-
-  return `<!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex">
-<title>tails-song-api</title>
-<style>
-  :root { color-scheme: light dark }
-  body { font: 15px/1.6 ui-sans-serif,system-ui,sans-serif; max-width: 46rem;
-         margin: 5vh auto; padding: 0 1.5rem; }
-  h1 { font-size: 1.5rem; font-weight: 500; margin: 0 0 .25rem }
-  p  { margin: .5rem 0 }
-  .q { opacity: .55 }
-  .m { font-family: ui-monospace,SFMono-Regular,Menlo,monospace; white-space: nowrap }
-  table { border-collapse: collapse; width: 100%; margin: 1rem 0 }
-  td { padding: .3rem .8rem .3rem 0; vertical-align: top; border-top: 1px solid;
-       border-color: color-mix(in srgb, currentColor 12%, transparent) }
-  code { font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: .9em }
-  pre { overflow-x: auto; padding: .8rem 1rem; border-radius: 3px;
-        background: color-mix(in srgb, currentColor 7%, transparent) }
-  .warn { border-left: 3px solid #a87f72; padding: .6rem 0 .6rem .9rem; margin: 1.25rem 0 }
-  hr { border: 0; border-top: 1px solid color-mix(in srgb, currentColor 12%, transparent);
-       margin: 2rem 0 }
-</style>
-</head><body>
-
-<h1>tails-song-api</h1>
-<p class="q">Running. Provider <code>${escapeHtml(config.provider)}</code>.
-This is the song service, not the website &mdash; there is nothing to use here.</p>
-
-<p>Generate songs from the studio:
-<a href="https://youssefalw2001.github.io/Petting-/studio/">Tails We Remember &rarr; Studio</a>.
-Connect it to this URL${open ? " and leave the token field blank" : " with your operator token"}.</p>
-
-${
-  open
-    ? `<div class="warn"><strong>No operator token is set, so this service is open.</strong>
-       Anyone with this URL can read every customer&rsquo;s answers and email address, and
-       generate songs on your ACE key. Harmless while nothing real is stored.
-       Set <code>OPERATOR_TOKEN</code> in the environment to close it &mdash; no code change.</div>`
-    : ""
-}
-
-<table>${rows}</table>
-
-<p class="q">Check it from a terminal:</p>
-<pre><code>curl ${escapeHtml("<this-url>")}/health${
-    open ? "" : `\ncurl ${escapeHtml("<this-url>")}/status -H "Authorization: Bearer $OPERATOR_TOKEN"`
-  }</code></pre>
-
-<hr>
-<p class="q">A reachable provider does not mean a song can be generated right now.
-The upstream free endpoint answers <code>/health</code> with 200 while every generation
-times out. The queue retries; that is what it is for.</p>
-
-</body></html>`;
-}
 
 /**
  * Serve audio with Range support.
@@ -276,6 +193,19 @@ function sendAudio(
  * that is not a reason for it to be guessable. Lengths are compared first because
  * timingSafeEqual throws on a length mismatch.
  */
+const COOKIE_NAME = "operator";
+
+function readCookie(req: IncomingMessage, name: string): string {
+  const header = req.headers.cookie;
+  if (!header) return "";
+  for (const part of header.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    if (part.slice(0, eq).trim() === name) return decodeURIComponent(part.slice(eq + 1).trim());
+  }
+  return "";
+}
+
 function authorise(req: IncomingMessage): void {
   // No token configured means no authentication. Explicit and early, rather than
   // falling through to a comparison of two empty strings that happens to pass —
@@ -283,7 +213,18 @@ function authorise(req: IncomingMessage): void {
   if (authIsOpen()) return;
 
   const header = req.headers.authorization ?? "";
-  const presented = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  /**
+   * Header for API clients, cookie for the studio page.
+   *
+   * The cookie is what makes `<audio src="/jobs/x/audio">` work: an audio element
+   * cannot send an Authorization header, and putting the token in the query string
+   * would write it into browser history and every access log between here and the
+   * browser. A cookie is sent automatically on a same-origin request, so playback
+   * and seeking work with no special handling at all.
+   */
+  const presented = header.startsWith("Bearer ")
+    ? header.slice(7).trim()
+    : readCookie(req, COOKIE_NAME);
 
   const expected = config.operatorToken;
   const a = Buffer.from(presented);
@@ -405,7 +346,9 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   if (path === "/" && method === "GET") {
     const wantsHtml = (req.headers.accept ?? "").includes("text/html");
     if (wantsHtml) {
-      sendHtml(req, res, rootPage());
+      // The studio itself, unauthenticated, because the page needs to render in
+      // order to offer a sign-in. Every route it calls is still checked.
+      sendHtml(req, res, studioPage());
     } else {
       sendJson(req, res, 200, {
         service: "tails-song-api",
@@ -425,6 +368,48 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
     return;
   }
 
+  /**
+   * Exchange the token for a cookie.
+   *
+   * Unauthenticated by necessity — this is how you become authenticated. It is
+   * also the one place a wrong token is expected, so it returns 401 with a plain
+   * message rather than the generic one.
+   */
+  if (path === "/login" && method === "POST") {
+    if (authIsOpen()) {
+      sendJson(req, res, 200, { ok: true, note: "no token is configured; nothing to sign in to" });
+      return;
+    }
+    const raw = await readBody(req);
+    let presented = "";
+    try {
+      presented = String((JSON.parse(raw || "{}") as { token?: unknown }).token ?? "").trim();
+    } catch {
+      throw new HttpError(400, "body was not valid JSON");
+    }
+
+    const a = Buffer.from(presented);
+    const b = Buffer.from(config.operatorToken);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+      throw new HttpError(401, "that token doesn't match this service's OPERATOR_TOKEN");
+    }
+
+    // HttpOnly so page scripts can't read it back out. SameSite=Lax rather than
+    // Strict so the cookie survives arriving from an external link. Secure only
+    // when the request actually came over TLS, or the cookie is silently dropped
+    // in local development over plain http.
+    const secure =
+      (req.headers["x-forwarded-proto"] ?? "").toString().split(",")[0]?.trim() === "https";
+    res.setHeader(
+      "Set-Cookie",
+      `${COOKIE_NAME}=${encodeURIComponent(presented)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${
+        60 * 60 * 24 * 30
+      }${secure ? "; Secure" : ""}`,
+    );
+    sendJson(req, res, 200, { ok: true });
+    return;
+  }
+
   authorise(req);
 
   // --- provider + queue introspection ---
@@ -441,6 +426,26 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
        * job 504s", and it is the first thing to check when the latter happens.
        */
       thinking: config.provider === "acemusic" ? config.acemusic.thinking : true,
+    });
+    return;
+  }
+
+  // --- pasted email -> answers ---
+  if (path === "/parse" && method === "POST") {
+    const raw = await readBody(req);
+    let text = "";
+    try {
+      text = String((JSON.parse(raw || "{}") as { text?: unknown }).text ?? "");
+    } catch {
+      throw new HttpError(400, "body was not valid JSON");
+    }
+    const { answers, matched } = parseSummary(text);
+    sendJson(req, res, 200, {
+      answers,
+      matched,
+      // Human-readable names, so the page can say what it read without needing
+      // its own copy of the label table.
+      labels: matched.map((key) => LABELS[key] ?? key),
     });
     return;
   }
@@ -548,10 +553,9 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       }
 
       job.brief = brief;
-      job.status = "queued";
       delete job.error;
       saveJob(job);
-      enqueue(job.id);
+      enqueue(job.id); // sets the status, so the two can't disagree
 
       sendJson(req, res, 202, { job: jobView(job), queue: queueStatus() });
       return;

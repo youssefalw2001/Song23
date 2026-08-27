@@ -90,7 +90,15 @@ export type ProviderHealth = {
   models?: string[];
 };
 
-export type JobStatus = "queued" | "generating" | "ready" | "failed";
+/**
+ * "draft" is a brief that exists and has never been generated.
+ *
+ * It used to be called "queued", which was a lie: nothing was in the queue, and a
+ * job whose generation had been rejected sat there reading "queued" forever while
+ * no work was pending. The distinction matters because "draft" is the normal,
+ * expected state of a new job — creating one deliberately does not generate.
+ */
+export type JobStatus = "draft" | "queued" | "generating" | "ready" | "failed";
 
 export type JobAttempt = {
   startedAt: string;

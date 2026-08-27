@@ -17,19 +17,33 @@ Generate an operator token with:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-## GitHub Pages cannot host this
+Then open the URL. **The service serves the studio at `/`** — paste a customer's
+email or type a name and a memory, read the lyrics, press generate, listen. There
+is nothing else to deploy and nothing to connect.
 
-Pages serves static files; it never runs a process. This service is a process — it
-listens on a port, holds a queue, retries on a timer and writes audio to disk.
+## Where it runs
 
-That is the same constraint that makes this repo necessary in the first place: the
-site is a static export on Pages, which is why it has nowhere to keep an API key
-and no way to call an endpoint that refuses cross-origin requests.
+Not GitHub Pages. Pages serves static files and never runs a process; this is a
+process — it listens on a port, holds a queue, retries on a timer and writes audio
+to disk.
 
-Pages hosts the studio page, at `/studio/` on the site. Render (or Docker, or your
-laptop) hosts this. There's a `render.yaml` and a `Dockerfile` —
-see **[docs/DEPLOY.md](docs/DEPLOY.md)**, including the part about Render's free
-filesystem being wiped on every deploy.
+There's a `render.yaml` and a `Dockerfile`, and running it on your own machine is a
+legitimate option for a long while. See **[docs/DEPLOY.md](docs/DEPLOY.md)**,
+including the part about Render's free filesystem being wiped on every deploy and
+taking finished songs with it.
+
+## Why the UI lives in here
+
+An earlier version put the studio on the public site and had it call this service
+across origins. That was the wrong shape: two deployments, a service URL to type
+in, a CORS allowlist to get wrong, and a token that `<audio src>` cannot send — so
+audio had to be fetched as a blob and replayed.
+
+Serving the page from the same process deletes all four problems. Same origin means
+no CORS at all; a cookie means the audio element can just play `/jobs/x/audio`,
+Range requests and seeking included; and there is one thing to deploy. The page is
+a template string in `src/http/ui.ts`, so a build that compiles is a build that has
+its UI — no asset can go missing.
 
 ## Why this is a separate service at all
 

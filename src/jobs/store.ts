@@ -61,7 +61,8 @@ export function createJob(answers: Answers, brief: SongBrief): Job {
   const now = new Date().toISOString();
   const job: Job = {
     id: newId(),
-    status: "queued",
+    // Not "queued" — nothing is queued until someone presses generate.
+    status: "draft",
     createdAt: now,
     updatedAt: now,
     answers,

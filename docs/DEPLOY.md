@@ -10,14 +10,8 @@ port, holds a job queue in memory, retries failed generations on a timer, and
 writes audio to disk. There is no arrangement of files that makes Pages do any of
 that.
 
-That is also why the site itself needs this service at all. `Petting-` is a static
-export on Pages precisely because it has no server, which is what leaves it with
-nowhere to keep an API key and no way to call an endpoint that refuses
-cross-origin requests.
-
-**Pages hosts the studio page. Something else has to host this.** The studio page
-is already deployed with the rest of the site at `/studio/` — that part of the plan
-works, and is done.
+The studio UI is served by this service at `/`, so wherever this runs is where you
+go to make songs. One deployment, one URL.
 
 ## Render — the shortest path
 
@@ -29,10 +23,10 @@ You already run `song-` there, so the account and the muscle memory exist.
 3. Set the two secrets it deliberately does not commit:
    - `ACE_API_KEY` — your acemusic.ai key
    - `OPERATOR_TOKEN` — `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
-4. Set `ALLOWED_ORIGINS` to `https://youssefalw2001.github.io` (add
-   `http://localhost:3000` while developing).
-5. Deploy, then open `/studio/` on the site and connect with the Render URL and the
-   token.
+4. Deploy, then **open the Render URL**. That's the studio.
+
+`ALLOWED_ORIGINS` is only needed if something on another domain calls this service.
+The studio is served from the same origin, so it doesn't use CORS at all.
 
 ### When the deploy fails
 

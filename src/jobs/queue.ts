@@ -50,6 +50,13 @@ const state: QueueState = { running: false, currentJobId: null, pending: [] };
 
 export function enqueue(jobId: string): void {
   if (state.pending.includes(jobId) || state.currentJobId === jobId) return;
+  // Mark it queued here rather than at the call site, so "queued" can only ever
+  // mean "actually in this array".
+  const job = getJob(jobId);
+  if (job && job.status !== "generating") {
+    job.status = "queued";
+    saveJob(job);
+  }
   state.pending.push(jobId);
   log.info("job enqueued", { id: jobId, depth: state.pending.length });
   void pump();
