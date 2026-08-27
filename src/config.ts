@@ -95,12 +95,18 @@ export const config = {
 export function validateConfig(): string[] {
   const problems: string[] = [];
 
-  if (!config.operatorToken) {
+  // An unset OPERATOR_TOKEN is allowed and means "no auth". It is not a fatal
+  // error, because refusing to boot over it turned into the thing blocking a
+  // deploy. It is loud instead of fatal — see configWarnings().
+  //
+  // A token that is set but too short to be worth anything is still fatal. That
+  // is a mistake rather than a decision: it looks protected and isn't.
+  if (config.operatorToken && config.operatorToken.length < 24) {
     problems.push(
-      "OPERATOR_TOKEN is not set. The service would accept song requests from anyone.",
+      "OPERATOR_TOKEN is set but shorter than 24 characters, which is worse than " +
+        "leaving it unset — it looks protected and isn't. Either generate a real one " +
+        "or remove it entirely.",
     );
-  } else if (config.operatorToken.length < 24) {
-    problems.push("OPERATOR_TOKEN is shorter than 24 characters. Generate a real one.");
   }
 
   if (config.provider === "acemusic" && !config.acemusic.apiKey) {
@@ -118,9 +124,29 @@ export function validateConfig(): string[] {
   return problems;
 }
 
+/** True when the service accepts requests from anyone. */
+export const authIsOpen = (): boolean => !config.operatorToken;
+
 /** Warnings worth printing but not worth refusing to boot over. */
 export function configWarnings(): string[] {
   const warnings: string[] = [];
+
+  if (authIsOpen()) {
+    /**
+     * Stated at length rather than as a one-liner, because a silent fail-open is
+     * exactly the flaw this project criticised upstream for
+     * (ace-step/ACE-Step-1.5#1131: "authentication is fail-open when API key is
+     * unset"). Shipping the same behaviour quietly would be indefensible.
+     * Shipping it loudly is a choice the operator gets to make with their eyes
+     * open.
+     */
+    warnings.push(
+      "OPERATOR_TOKEN is not set: THIS SERVICE IS OPEN. Anyone who finds the URL can " +
+        "read every customer's answers and email, and generate songs on your ACE key. " +
+        "That is fine on localhost. On a public URL it is a data leak waiting to happen. " +
+        "Set OPERATOR_TOKEN to close it — no code change, no redeploy of anything else.",
+    );
+  }
 
   if (config.provider === "acemusic" && config.acemusic.thinking) {
     warnings.push(

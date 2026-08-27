@@ -26,6 +26,10 @@ services:
       # Both of these are secrets.
       - key: ACE_API_KEY
         sync: false
+
+      # Optional. Unset means the service is open to anyone with the URL — fine
+      # while nothing real is in it, a data leak once it holds customer emails.
+      # Adding it later is this variable and a restart, nothing more.
       - key: OPERATOR_TOKEN
         sync: false
 

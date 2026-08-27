@@ -12,7 +12,7 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { timingSafeEqual } from "node:crypto";
-import { config } from "../config.ts";
+import { config, authIsOpen } from "../config.ts";
 import { log } from "../log.ts";
 import { getProvider } from "../ace/index.ts";
 import { buildBrief, validateBrief } from "../songwriting/brief.ts";
@@ -162,6 +162,11 @@ function sendAudio(
  * timingSafeEqual throws on a length mismatch.
  */
 function authorise(req: IncomingMessage): void {
+  // No token configured means no authentication. Explicit and early, rather than
+  // falling through to a comparison of two empty strings that happens to pass —
+  // the behaviour should be obvious in the code, not an accident of it.
+  if (authIsOpen()) return;
+
   const header = req.headers.authorization ?? "";
   const presented = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
 
@@ -279,6 +284,9 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
     sendJson(req, res, 200, {
       provider: health,
       queue: queueStatus(),
+      // Reported so the studio can show it. An open service should be visible in
+      // the UI, not only in a boot log nobody re-reads.
+      auth: authIsOpen() ? "open" : "token",
       /**
        * Surfaced because it is the difference between "songs work" and "every
        * job 504s", and it is the first thing to check when the latter happens.
