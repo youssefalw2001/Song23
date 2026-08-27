@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": "src",
+    "outDir": "dist",
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": false,
+    "verbatimModuleSyntax": true,
+
+    // Imports carry explicit .ts extensions so `node --experimental-strip-types`
+    // can run src/ directly with no build step, and tsc rewrites them to .js on
+    // the way into dist/. One import style for both dev and production.
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+
+    "declaration": false,
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.ts"]
+}

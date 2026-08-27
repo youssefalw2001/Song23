@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      # The songwriting layer needs no key and touches no network, so it is
+      # genuinely testable in CI. The one check that matters most is that a name
+      # the family asked for survives into the lyrics — it was silently dropped
+      # once by a duration calculation, and that is exactly the kind of failure
+      # that reaches a customer looking like success.
+      - name: Songwriting checks
+        run: npm run check
+
+      # Guard against a key or token being committed. Cheap, and the alternative
+      # is finding out from a public repo.
+      - name: No secrets committed
+        run: |
+          if git ls-files | grep -qE '^\.env$|^\.operator-token'; then
+            echo "A secret file is tracked by git."; exit 1
+          fi
+          if git grep -nIE '(ACE_API_KEY|OPERATOR_TOKEN)[[:space:]]*=[[:space:]]*[A-Za-z0-9]{16,}' -- . ':!.env.example'; then
+            echo "A hardcoded key or token is committed."; exit 1
+          fi
+          echo "clean"

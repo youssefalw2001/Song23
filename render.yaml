@@ -1,0 +1,45 @@
+# Render blueprint. Dashboard -> New -> Blueprint -> this repo.
+#
+# Set up the same way as the song- service so there is one deployment pattern to
+# remember rather than two.
+services:
+  - type: web
+    name: tails-song-api
+    env: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.11.0
+
+      - key: MUSIC_PROVIDER
+        value: acemusic
+
+      # `sync: false` means Render prompts for it and never stores it in git.
+      # Both of these are secrets.
+      - key: ACE_API_KEY
+        sync: false
+      - key: OPERATOR_TOKEN
+        sync: false
+
+      # Deliberately false, against ACE's own default. With thinking on, the
+      # hosted endpoint returns 504 at its 60-second gateway timeout even for a
+      # 30-second request. With it off, a three-minute song takes about twenty
+      # seconds. See docs/ACE-MUSIC-API.md.
+      - key: ACE_THINKING
+        value: "false"
+
+      # The studio page runs in a browser and is blocked without this. Add
+      # http://localhost:3000 while developing the site locally.
+      - key: ALLOWED_ORIGINS
+        value: https://youssefalw2001.github.io
+
+      # WARNING: on the free plan this directory is wiped on every deploy and
+      # restart, which loses finished songs and the answers behind them. Attach a
+      # Render disk and point this at its mount path before real customers exist.
+      # See docs/DEPLOY.md.
+      - key: DATA_DIR
+        value: ./data

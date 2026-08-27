@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Secrets. Never commit an ACE key or an operator token.
+.env
+.env.*
+!.env.example
+*.local
+
+# The job store: customer answers, lyrics and generated audio all live here.
+# This is customer data. It does not belong in git.
+data/
+
+.DS_Store
+*.log

@@ -1,0 +1,23 @@
+{
+  "name": "tails-song-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Song generation service for Tails We Remember. Turns a customer's answers into a finished memorial song via ACE-Step.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "node --experimental-strip-types --watch src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "check": "node --experimental-strip-types src/scripts/check.ts",
+    "brief": "node --experimental-strip-types src/scripts/brief-preview.ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5"
+  }
+}
