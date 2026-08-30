@@ -38,6 +38,25 @@ type Example = {
   lyrics: string;
 };
 
+/**
+ * Appended to every caption, and the single most useful thing in this file.
+ *
+ * The first pass at Milo and Luna came back with a metallic ringing that read
+ * instantly as machine-made. The cause was not the model — it was in my captions.
+ * One asked for a "wide warm room", which is a request for reverb written out in
+ * words; the other for "hushed close harmonies", which is a doubled vocal, and
+ * doubling comes back with phase artefacts. Both said "breathy", which arrives as
+ * sibilance. Buddy and Charlie, which were fine first time, said "close-miked"
+ * and "intimate" and asked for neither.
+ *
+ * Stating the absence is worth doing even though the model honours negatives
+ * imperfectly, because the alternative is leaving the space unspecified and
+ * letting it choose one. If a generated vocal ever sounds artificial, look here
+ * before blaming the model.
+ */
+const DRY =
+  "dry, close-miked, no reverb, no echo, single tracked vocal, no harmonies, no double tracking";
+
 const EXAMPLES: Example[] = [
   {
     // The featured track, so the fullest arrangement of the four — but still
@@ -68,15 +87,21 @@ And somehow you always knew
 Always home`,
   },
   {
-    // Piano and a female voice against Buddy's guitar and male voice. The
-    // sparsest of the four.
+    // Gospel-soul, chosen by ear over four alternatives.
+    //
+    // This slot was originally felt piano with a breathy female vocal in a "wide
+    // warm room", and it came back with a metallic ring that read instantly as
+    // machine-made. "Wide warm room" is a request for reverb written out in words.
+    // The replacement names no space at all and says so explicitly.
     id: "milo",
     duration: 45,
-    bpm: 62,
-    keyScale: "C Major",
+    bpm: 60,
+    keyScale: "E Flat Major",
     caption:
-      "solo piano memorial ballad, felt piano, soft sustain pedal, breathy intimate female vocal, " +
-      "wide warm room, very slow, reflective, restrained, no drums, no strings",
+      "slow gospel soul ballad, warm upright piano, hammond organ swell, " +
+      "soft brushed drums, round electric bass, honest full male vocal, " +
+      "sincere and unhurried, vintage recording, no choir, no backing vocals, " +
+      DRY,
     lyrics: `[Intro]
 
 [Verse 1]
@@ -95,16 +120,21 @@ I'm coming home for good
 Wait for me`,
   },
   {
-    // Luna is a cat, and the caption says so in the only way that matters
-    // sonically: smaller. Nylon strings and a fiddle, nothing weighty.
+    // Resonator slide blues, chosen by ear over four alternatives.
+    //
+    // Originally nylon strings, a fiddle and "hushed close harmonies" — and the
+    // harmonies were the problem: a doubled vocal comes back with phase artefacts
+    // that ring. Luna was a cat, so this stays sparse and small; slide guitar
+    // carries the weight so the voice can stay plain.
     id: "luna",
     duration: 40,
-    bpm: 74,
-    keyScale: "D Major",
+    bpm: 64,
+    keyScale: "E Major",
     caption:
-      "soft folk lament, nylon-string guitar, quiet fiddle, hushed close harmonies, " +
-      "gentle female vocal, delicate and small-scale, pastoral, warm tape saturation, " +
-      "unhurried, no drums",
+      "slow acoustic blues lament, resonator slide guitar, fingerpicked acoustic guitar, " +
+      "soft upright bass, warm weathered male vocal, front-porch feel, " +
+      "unhurried, sparse, no drums, vintage analogue warmth, " +
+      DRY,
     lyrics: `[Verse 1]
 Sixteen years, one step behind
 Room to room, close and slow
